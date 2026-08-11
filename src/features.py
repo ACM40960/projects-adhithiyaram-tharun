@@ -1,6 +1,4 @@
-"""Leakage-safe feature engineering for the F1 race predictor.
-
-Every function computes features using only information available
+"""Every function computes features using only information available
 strictly before the race being featured. Column names match
 src/data_fetch.py's actual output: driver_code, constructor, season,
 round (there is no explicit race_date column — season+round is already
@@ -128,8 +126,29 @@ def add_season_progress(df: pd.DataFrame) -> pd.DataFrame:
 def build_feature_table(races: pd.DataFrame) -> pd.DataFrame:
     """Run the full leakage-safe feature pipeline in order."""
     df = drop_unclassified(races)
+    df = handle_missing_grid_position(df)
     df = add_driver_rolling_form(df)
     df = add_constructor_rolling_form(df)
     df = add_cold_start_flag(df)
     df = add_season_progress(df)
+    return df
+
+def handle_missing_grid_position(df: pd.DataFrame) -> pd.DataFrame:
+    """Flag and impute missing grid_position values.
+
+    A missing grid_position typically means a pit-lane start or similar
+    non-standard grid assignment, not a genuinely average one. Imputing
+    with the median would misrepresent these as ordinary mid-field
+    starts, so instead: flag them explicitly (same pattern as
+    is_new_team) and fill with one worse than the largest real grid
+    slot for that race, since a pit-lane start is realistically a worse
+    starting position than anyone actually on the grid.
+    """
+    df = df.copy()
+    df["started_from_pit_lane"] = df["grid_position"].isna().astype(int)
+
+    worst_grid_per_race = df.groupby(["season", "round"])["grid_position"].transform("max")
+    fallback = worst_grid_per_race + 1
+    df["grid_position"] = df["grid_position"].fillna(fallback)
+
     return df
