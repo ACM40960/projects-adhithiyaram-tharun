@@ -161,6 +161,107 @@ def fetch_all_seasons(
 
     return combined
 
+def fetch_lap_data(year: int, gp_round: int) -> pd.DataFrame | None:
+    """Fetch lap-by-lap timing data for a single race.
 
-if __name__ == "__main__":
-    fetch_all_seasons()
+    Separate from fetch_race_results (which only loads session.results)
+    since lap-level data is far larger and only needed from Stage 4
+    onward, not by the Stage 1-3 pipeline.
+    """
+    try:
+        session = fastf1.get_session(year, gp_round, RACE_SESSION)
+        session.load(laps=True, telemetry=False, weather=False, messages=False)
+    except Exception as exc:
+        logger.warning("Could not load laps for %s round %s (%s) — skipping", year, gp_round, exc)
+        return None
+
+    laps = session.laps
+    if laps is None or laps.empty:
+        logger.warning("No lap data available for %s round %s — skipping", year, gp_round)
+        return None
+
+    tidy = laps[[
+        "Driver", "LapNumber", "LapTime", "Compound", "TyreLife",
+        "Stint", "PitInTime", "PitOutTime", "TrackStatus",
+    ]].copy()
+    tidy = tidy.rename(columns={"Driver": "driver_code"})
+    tidy["season"] = year
+    tidy["round"] = gp_round
+    tidy["LapTime"] = tidy["LapTime"].dt.total_seconds()
+
+    return tidy
+
+
+def fetch_season_laps(
+    year: int,
+    request_delay_seconds: float = FASTF1_REQUEST_DELAY_SECONDS,
+    resume: bool = True,
+) -> pd.DataFrame:
+    """Fetch lap data for every completed race in a season, saving after each race.
+
+    Saves incrementally (one race at a time) rather than only after the
+    whole season completes, so an interrupted run (e.g. hitting fastf1's
+    hourly rate cap) doesn't lose already-fetched races. With resume=True,
+    races already saved to disk are skipped entirely, so a re-run after
+    a rate-limit reset doesn't waste API calls re-fetching completed work.
+    """
+    completed = get_completed_rounds(year)
+    rounds = list(completed["RoundNumber"])
+
+    season_dir = RAW_DATA_DIR / "laps_by_race"
+    season_dir.mkdir(parents=True, exist_ok=True)
+
+    season_laps = []
+    for i, gp_round in enumerate(rounds):
+        race_path = season_dir / f"laps_{year}_{gp_round}.csv"
+
+        if resume and race_path.exists():
+            logger.info("Skipping %s round %s — already fetched", year, gp_round)
+            season_laps.append(pd.read_csv(race_path))
+            continue
+
+        lap_df = fetch_lap_data(year, gp_round)
+        if lap_df is not None:
+            lap_df.to_csv(race_path, index=False)
+            season_laps.append(lap_df)
+
+        if request_delay_seconds and i < len(rounds) - 1:
+            time.sleep(request_delay_seconds)
+
+    if not season_laps:
+        return pd.DataFrame()
+
+    return pd.concat(season_laps, ignore_index=True)
+
+
+def fetch_all_lap_data(
+    seasons: list[int] = ALL_SEASONS,
+    request_delay_seconds: float = FASTF1_REQUEST_DELAY_SECONDS,
+) -> pd.DataFrame:
+    """Fetch lap data for all configured seasons, saving one CSV per season plus a combined CSV.
+
+    Individual races are saved as they're fetched (see fetch_season_laps),
+    so this can be safely re-run after an interruption — already-fetched
+    races are loaded from disk instead of re-requested.
+    """
+    enable_fastf1_cache()
+
+    all_seasons_laps = []
+    for year in seasons:
+        season_df = fetch_season_laps(year, request_delay_seconds=request_delay_seconds)
+        if season_df.empty:
+            continue
+
+        out_path = RAW_DATA_DIR / f"lap_data_{year}.csv"
+        season_df.to_csv(out_path, index=False)
+        logger.info("Saved %s lap rows to %s", len(season_df), out_path)
+
+        all_seasons_laps.append(season_df)
+
+    combined = pd.concat(all_seasons_laps, ignore_index=True) if all_seasons_laps else pd.DataFrame()
+    if not combined.empty:
+        combined_path = RAW_DATA_DIR / "lap_data_all.csv"
+        combined.to_csv(combined_path, index=False)
+        logger.info("Saved combined lap file: %s rows to %s", len(combined), combined_path)
+
+    return combined

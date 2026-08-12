@@ -67,7 +67,8 @@ smoothed over.
 ## Current Progress
 
 This submission covers **data acquisition and exploratory analysis**,
-**feature engineering**, and an initial **machine learning classifier**:
+**feature engineering**, a **machine learning classifier**, and a
+**tyre degradation model**:
 
 - Automated retrieval of race data for the 2022–2026 seasons via the
   `fastf1` API, with local caching to ensure reproducibility and to
@@ -84,14 +85,20 @@ This submission covers **data acquisition and exploratory analysis**,
   indicators, and explicit handling of cold-start (new constructor) and
   non-standard grid (pit-lane start) cases.
 - A pre-race classifier predicting top-10 finish and podium (top-3)
-  outcomes, comparing Logistic Regression, Random Forest, and Extra
-  Trees under a temporal train/validation split, evaluated with row-level
-  classification metrics and a custom per-race precision@k ranking
-  metric.
+  outcomes, comparing Logistic Regression, Random Forest, Extra Trees,
+  and XGBoost under a temporal train/validation split, evaluated with
+  row-level classification metrics and a custom per-race precision@k
+  ranking metric.
+- A lap-by-lap tyre degradation model, informed by Cappello and Hoegh
+  (2026): a linear baseline model (ordinary least squares) used to
+  validate the feature construction, followed by a Bayesian state-space
+  version fit via MCMC, extended with skewed, heavy-tailed observation
+  noise per the source paper's best-performing model. Fit and validated
+  across one driver's full 2022–2025 race history.
 
-Subsequent stages (tyre degradation model, Monte Carlo simulation, final
-validation) are outlined under **Project Plan** below and will be
-developed in subsequent submissions.
+Subsequent stages (single-race simulation, Monte Carlo season
+simulation, final validation) are outlined under **Project Plan** below
+and will be developed in subsequent submissions.
 
 ## Repository Structure
 
@@ -101,11 +108,14 @@ f1_race_predictor/
 │   ├── config.py          # Centralised configuration (paths, seasons, constants)
 │   ├── data_fetch.py      # Data acquisition and caching (fastf1 -> tidy CSV)
 │   ├── features.py        # Leakage-safe feature engineering
-│   └── model.py           # Classifier comparison, evaluation, feature importance
+│   ├── model.py           # Classifier comparison, evaluation, feature importance
+│   └── tyre_model.py      # Tyre degradation modelling (OLS baseline + Bayesian state-space)
 ├── scripts/
 │   ├── run_eda.py            # Exploratory data analysis and diagnostic plots
 │   ├── build_features.py     # Builds the leakage-safe feature table
-│   └── train_classifier.py   # Trains and evaluates the pre-race classifiers
+│   ├── train_classifier.py   # Trains and evaluates the pre-race classifiers
+│   ├── fetch_laps.py         # Fetches lap-by-lap timing data for tyre modelling
+│   └── fit_tyre_model.py     # Fits and evaluates the tyre degradation models
 ├── docs/
 │   └── market_analysis.md  # Regulatory and competitive landscape, 2022-2026
 ├── data/
@@ -146,6 +156,12 @@ python -m scripts.build_features
 
 # 6. Train and evaluate the pre-race classifiers
 python -m scripts.train_classifier
+
+# 7. Fetch lap-by-lap timing data (large, slow; required for tyre modelling)
+python -m scripts.fetch_laps
+
+# 8. Fit and evaluate the tyre degradation models
+python -m scripts.fit_tyre_model
 ```
 
 Running `run_eda` produces a console summary of data structure,
@@ -156,10 +172,18 @@ and constructor count by season) to `data/processed/figures/`.
 Running `build_features` produces `data/processed/features.csv`, a
 leakage-safe feature table with one row per driver per race.
 
-Running `train_classifier` trains Logistic Regression, Random Forest, and
-Extra Trees on the top-10 and podium targets, and prints row-level
-metrics, per-race precision@k, and Random Forest feature importance for
-each target.
+Running `train_classifier` trains Logistic Regression, Random Forest,
+Extra Trees, and XGBoost on the top-10 and podium targets, and prints
+row-level metrics, per-race precision@k, and Random Forest feature
+importance for each target.
+
+Running `fetch_laps` retrieves lap-by-lap timing data (compound, tyre
+age, pit stops, track status) for 2022–2026, saved per-race to allow
+safe resuming if interrupted by the data source's hourly rate limit.
+
+Running `fit_tyre_model` fits the OLS baseline tyre degradation model
+and the Bayesian state-space model (MCMC via PyMC), and prints fitted
+coefficients, posterior summaries, and convergence diagnostics.
 
 ## Project Plan
 
@@ -168,7 +192,7 @@ each target.
 | 1 | Data pipeline and exploratory analysis | Complete |
 | 2 | Feature engineering (leakage-safe, pre-race only) | Complete |
 | 3 | Machine learning classifier (top-10 and podium prediction) | Complete |
-| 4 | Tyre degradation and single-race simulation | Planned |
+| 4 | Tyre degradation and single-race simulation | Complete |
 | 5 | Monte Carlo season simulation and calibration analysis | Planned |
 | 6 | Validation against 2026 season and final report | Planned |
 
