@@ -66,8 +66,8 @@ smoothed over.
 
 ## Current Progress
 
-This submission covers the **data acquisition and exploratory analysis**
-stage of the project:
+This submission covers **data acquisition and exploratory analysis**,
+**feature engineering**, and an initial **machine learning classifier**:
 
 - Automated retrieval of race data for the 2022–2026 seasons via the
   `fastf1` API, with local caching to ensure reproducibility and to
@@ -77,12 +77,21 @@ stage of the project:
   (training/validation/prediction) is determined by `src/config.py`.
 - Exploratory analysis validating data integrity (missingness, coverage,
   grid–finish relationship) and visualising constructor performance
-  across the regulatory boundary, ahead of feature engineering and
-  modelling.
+  across the regulatory boundary.
+- A leakage-safe feature table (one row per driver per race) built
+  strictly from information available before each race: rolling and
+  exponentially-weighted driver and constructor form, season-progress
+  indicators, and explicit handling of cold-start (new constructor) and
+  non-standard grid (pit-lane start) cases.
+- A pre-race classifier predicting top-10 finish and podium (top-3)
+  outcomes, comparing Logistic Regression, Random Forest, and Extra
+  Trees under a temporal train/validation split, evaluated with row-level
+  classification metrics and a custom per-race precision@k ranking
+  metric.
 
-Subsequent stages (feature engineering, classifier training, tyre model,
-Monte Carlo simulation) are outlined under **Project Plan** below and will
-be developed in subsequent submissions.
+Subsequent stages (tyre degradation model, Monte Carlo simulation, final
+validation) are outlined under **Project Plan** below and will be
+developed in subsequent submissions.
 
 ## Repository Structure
 
@@ -90,9 +99,13 @@ be developed in subsequent submissions.
 f1_race_predictor/
 ├── src/
 │   ├── config.py          # Centralised configuration (paths, seasons, constants)
-│   └── data_fetch.py      # Data acquisition and caching (fastf1 -> tidy CSV)
+│   ├── data_fetch.py      # Data acquisition and caching (fastf1 -> tidy CSV)
+│   ├── features.py        # Leakage-safe feature engineering
+│   └── model.py           # Classifier comparison, evaluation, feature importance
 ├── scripts/
-│   └── run_eda.py         # Exploratory data analysis and diagnostic plots
+│   ├── run_eda.py            # Exploratory data analysis and diagnostic plots
+│   ├── build_features.py     # Builds the leakage-safe feature table
+│   └── train_classifier.py   # Trains and evaluates the pre-race classifiers
 ├── docs/
 │   └── market_analysis.md  # Regulatory and competitive landscape, 2022-2026
 ├── data/
@@ -127,6 +140,12 @@ python -m src.data_fetch
 
 # 4. Run exploratory data analysis
 python -m scripts.run_eda
+
+# 5. Build the leakage-safe feature table
+python -m scripts.build_features
+
+# 6. Train and evaluate the pre-race classifiers
+python -m scripts.train_classifier
 ```
 
 Running `run_eda` produces a console summary of data structure,
@@ -134,13 +153,21 @@ completeness, and coverage by season and regulation era, and saves
 diagnostic figures (grid vs. finish position by era, points distribution,
 and constructor count by season) to `data/processed/figures/`.
 
+Running `build_features` produces `data/processed/features.csv`, a
+leakage-safe feature table with one row per driver per race.
+
+Running `train_classifier` trains Logistic Regression, Random Forest, and
+Extra Trees on the top-10 and podium targets, and prints row-level
+metrics, per-race precision@k, and Random Forest feature importance for
+each target.
+
 ## Project Plan
 
 | Stage | Description | Status |
 |---|---|---|
 | 1 | Data pipeline and exploratory analysis | Complete |
-| 2 | Feature engineering (leakage-safe, pre-race only) | Planned |
-| 3 | Machine learning classifier (top-10 finish prediction) | Planned |
+| 2 | Feature engineering (leakage-safe, pre-race only) | Complete |
+| 3 | Machine learning classifier (top-10 and podium prediction) | Complete |
 | 4 | Tyre degradation and single-race simulation | Planned |
 | 5 | Monte Carlo season simulation and calibration analysis | Planned |
 | 6 | Validation against 2026 season and final report | Planned |
