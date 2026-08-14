@@ -85,6 +85,7 @@ f1_race_predictor/
 │   ├── build_features.py                # Builds features.csv
 │   ├── train_classifier.py              # Model comparison (Logistic Regression/RF/ET/XGBoost)
 │   ├── persist_production_model.py      # Fits and saves production classifier
+│   ├── plot_confusion_and_roc.py        # Confusion matrices and ROC curves (Random Forest)
 │   ├── fetch_laps.py                    # Lap-by-lap data fetch
 │   ├── fit_tyre_model.py                # Single-driver tyre model (Tier 1 and 2)
 │   ├── fit_hierarchical_tyre_model.py   # 22-driver hierarchical tyre model
@@ -135,6 +136,7 @@ python -m scripts.build_features
 # 3. Classifier (Stage 3)
 python -m scripts.train_classifier
 python -m scripts.persist_production_model
+python -m scripts.plot_confusion_and_roc
 
 # 4. Tyre degradation model (Stage 4 / Phase 1)
 python -m scripts.fetch_laps
@@ -182,29 +184,41 @@ Each script prints diagnostics and writes its output to `data/processed/`. Comme
 
 ### Classifier
 
+Beyond accuracy, every model is evaluated on precision, recall, F1, and ROC-AUC, following standard practice for imbalanced binary classification.
+
 **Top-10 Prediction**
 
-| Model | Accuracy | ROC-AUC | Precision@10 |
-|---|---|---|---|
-| Logistic Regression | 0.752 | 0.840 | 0.754 |
-| Random Forest | 0.770 | 0.836 | 0.758 |
-| Extra Trees | 0.764 | 0.831 | 0.750 |
-| XGBoost | 0.758 | 0.831 | 0.767 |
+| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | Precision@10 |
+|---|---|---|---|---|---|---|
+| Logistic Regression | 0.752 | 0.798 | 0.675 | 0.731 | 0.840 | 0.754 |
+| Random Forest | 0.770 | 0.780 | 0.754 | 0.767 | 0.836 | 0.758 |
+| Extra Trees | 0.764 | 0.782 | 0.733 | 0.757 | 0.831 | 0.750 |
+| XGBoost | 0.758 | 0.801 | 0.688 | 0.740 | 0.831 | 0.767 |
 
 **Podium Prediction**
 
-| Model | Accuracy | Recall | Precision@3 |
-|---|---|---|---|
-| Logistic Regression | 0.868 | 0.889 | 0.708 |
-| Random Forest | 0.919 | 0.722 | 0.708 |
-| Extra Trees | 0.896 | 0.375 | 0.722 |
-| XGBoost | 0.887 | 0.556 | 0.611 |
+| Model | Accuracy | Precision | Recall | F1 | ROC-AUC | Precision@3 |
+|---|---|---|---|---|---|---|
+| Logistic Regression | 0.868 | 0.538 | 0.889 | 0.670 | 0.941 | 0.708 |
+| Random Forest | 0.919 | 0.732 | 0.722 | 0.727 | 0.938 | 0.708 |
+| Extra Trees | 0.896 | 0.844 | 0.375 | 0.519 | 0.945 | 0.722 |
+| XGBoost | 0.887 | 0.645 | 0.556 | 0.597 | 0.912 | 0.611 |
 
 Random Forest is used as the production model, on the basis of being the most balanced across both targets rather than the top performer on any single metric. XGBoost underperformed on the podium target, which has the fewest positive training examples of the two targets — consistent with boosting's greater sensitivity to hyperparameters on small, imbalanced data.
 
 ![Feature importance for the top-10 and podium targets](data/processed/figures/feature_importance.png)
 
 *Random Forest feature importance for both prediction targets. `grid_position` dominates both, more strongly for podium prediction than top-10.*
+
+**Confusion matrices and ROC curves.** Accuracy alone is not sufficient to characterise a classifier, particularly under class imbalance (only ~15% of podium-target rows are positive). Confusion matrices and ROC curves are reported below for the production model on both targets.
+
+![Confusion matrices for top-10 and podium targets](data/processed/figures/confusion_matrices.png)
+
+*Row-normalised confusion matrices (Random Forest, 2025 holdout). Each row sums to 1. The podium matrix shows a visible false-negative rate consistent with the 0.722 recall reported above.*
+
+![ROC curves for top-10 and podium targets](data/processed/figures/roc_curves.png)
+
+*ROC curves corresponding to the ROC-AUC values reported above (0.836 top-10, 0.938 podium). Both curves bow well above the diagonal chance line; the podium curve bows further, consistent with its higher AUC.*
 
 ### Tyre Degradation Model (Phase 1)
 
