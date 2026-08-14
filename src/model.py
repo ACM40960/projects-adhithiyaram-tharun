@@ -5,6 +5,7 @@ features) rather than Bansal et al.'s raw points regression, to avoid the
 circularity of using final race position as an input.
 """
 
+import joblib
 import pandas as pd
 from sklearn.ensemble import ExtraTreesClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -18,6 +19,8 @@ from sklearn.metrics import (
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
+
+from src.config import ERA_COLUMNS, MODELS_DIR
 
 TRAIN_SEASONS = [2022, 2023, 2024]
 VALIDATION_SEASON = 2025
@@ -89,18 +92,31 @@ def add_targets(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def prepare_model_frame(df: pd.DataFrame) -> pd.DataFrame:
-    """Add targets, one-hot encode regulation_era, and cast is_new_team to int."""
+    """Add targets, one-hot encode regulation_era, and cast is_new_team to int.
+
+    Era dummies are reindexed against the fixed ERA_COLUMNS list rather
+    than whatever eras happen to appear in this slice of df. Training
+    data (2022-2025) and 2026 prediction data each contain only one era,
+    so deriving columns per-slice would give the two sides mismatched
+    feature sets at predict time — this was latent through Stage 3
+    because train/validation both fell in the same era by coincidence.
+    """
     df = add_targets(df)
     df["is_new_team"] = df["is_new_team"].astype(int)
     era_dummies = pd.get_dummies(df["regulation_era"], prefix="era")
+    era_dummies = era_dummies.reindex(columns=ERA_COLUMNS, fill_value=0)
     df = pd.concat([df, era_dummies], axis=1)
     return df
 
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
-    """Base feature list plus any one-hot regulation_era columns present."""
-    era_cols = [c for c in df.columns if c.startswith("era_")]
-    return FEATURE_COLUMNS + era_cols
+    """Base feature list plus the fixed set of regulation-era columns.
+
+    df is unused — kept as a parameter for call-site compatibility with
+    existing Stage 3 code, but the era columns no longer depend on which
+    rows happen to be in df.
+    """
+    return FEATURE_COLUMNS + ERA_COLUMNS
 
 
 def temporal_split(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -187,3 +203,41 @@ def get_feature_importance(df: pd.DataFrame, target_col: str, model_name: str = 
 
     importances = pd.Series(fitted_model.feature_importances_, index=feature_cols)
     return importances.sort_values(ascending=False).to_frame("importance")
+
+
+def fit_final_model(df: pd.DataFrame, target_col: str, model_name: str = "random_forest"):
+    """Fit the chosen production model on all known history and save it.
+
+    run_comparison() holds 2025 out to compare models fairly. Once a
+    model is chosen for production use, this refits it on 2022-2025
+    combined — every season with a known outcome — rather than leaving
+    2025 unused just because it was a validation set during selection.
+    """
+    prepared = prepare_model_frame(df)
+    feature_cols = get_feature_columns(prepared)
+    known = prepared[prepared["season"].isin(TRAIN_SEASONS + [VALIDATION_SEASON])]
+
+    X, y = known[feature_cols], known[target_col]
+    positive_class_ratio = (y == 0).sum() / (y == 1).sum()
+    fitted_model = build_models(positive_class_ratio)[model_name]
+    fitted_model.fit(X, y)
+
+    output_path = MODELS_DIR / f"{model_name}_{target_col}.joblib"
+    joblib.dump(fitted_model, output_path)
+    return fitted_model, output_path
+
+def walk_forward_split(df: pd.DataFrame, target_round: int, target_season: int = 2026) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Train on everything strictly before target_round of target_season; return that round as the held-out set.
+
+    Unlike temporal_split (fixed 2022-2024 train / 2025 validation), this
+    grows the training window round-by-round through the 2026 season --
+    each fit only sees what would genuinely have been known before that
+    specific race, never that race's own outcome or any later round's.
+    """
+    prior_seasons = df[df["season"] < target_season]
+    prior_2026_rounds = df[(df["season"] == target_season) & (df["round"] < target_round)]
+    train = pd.concat([prior_seasons, prior_2026_rounds], ignore_index=True)
+
+    target = df[(df["season"] == target_season) & (df["round"] == target_round)].copy()
+
+    return train, target

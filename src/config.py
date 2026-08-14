@@ -12,6 +12,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 CACHE_DIR = PROJECT_ROOT / "f1_cache"
+MODELS_DIR = PROJECT_ROOT / "models"
 
 TRAIN_SEASONS = [2022, 2023, 2024]
 VALIDATION_SEASON = 2025
@@ -35,6 +36,13 @@ REGULATION_ERA = {
     2026: "next_gen_2026",
 }
 
+# Fixed regardless of which seasons are present in a given DataFrame slice.
+# pd.get_dummies only emits columns for categories it actually sees, and
+# training data (2022-2025) vs. 2026 prediction data each contain only one
+# era -- deriving era columns per-slice would give the two sides mismatched
+# feature sets at predict time. See src/model.py, prepare_model_frame.
+ERA_COLUMNS = [f"era_{era}" for era in sorted(set(REGULATION_ERA.values()))]
+
 # Maps historical constructor names onto their 2026 identity so that
 # team-level features join correctly across a rebrand. See
 # docs/market_analysis.md, section 3. Verify against the exact strings
@@ -55,5 +63,5 @@ CONSTRUCTOR_NAME_MAP = {
 # Teams with no prior-season history in this dataset; see docs/market_analysis.md.
 NEW_ENTRANTS_2026 = ["Cadillac"]
 
-for _directory in (RAW_DATA_DIR, PROCESSED_DATA_DIR, CACHE_DIR):
+for _directory in (RAW_DATA_DIR, PROCESSED_DATA_DIR, CACHE_DIR, MODELS_DIR):
     _directory.mkdir(parents=True, exist_ok=True)
