@@ -73,6 +73,7 @@ def main() -> None:
         race_sim_params, noise_pool, lap_counts, lap_count_fallback,
         n_simulations=N_SIMULATIONS, seed=SEED,
     )
+    points_df.to_csv(PROCESSED_DATA_DIR / "physics_points_distribution.csv", index=False)
     results = compute_championship_prob(points_df)
 
     output_path = PROCESSED_DATA_DIR / "2026_championship_predictions_physics.csv"
