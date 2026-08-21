@@ -36,15 +36,7 @@ def get_race_calendar(year: int) -> pd.DataFrame:
 
 
 def get_completed_rounds(year: int) -> pd.DataFrame:
-    """Return the calendar filtered to rounds whose race day is today or earlier.
-
-    Uses the schedule's own EventDate rather than an API call per round, so
-    future rounds are ruled out for free instead of via a failed request.
-    Compares calendar dates only (not time-of-day), since EventDate marks
-    the day of the race rather than its exact start time; fetch_race_results
-    still falls back to skipping gracefully if a same-day race hasn't
-    published results yet.
-    """
+    """Return the calendar filtered to rounds whose race day is today or earlier."""
     calendar = get_race_calendar(year)
     event_dates = pd.to_datetime(calendar["EventDate"])
     if event_dates.dt.tz is not None:
@@ -61,10 +53,7 @@ def normalize_constructor(name: str) -> str:
 
 
 def fetch_race_results(year: int, gp_round: int) -> pd.DataFrame | None:
-    """Fetch and tidy the results table for a single race.
-
-    Returns None if the session could not be loaded or has no results.
-    """
+    """Fetch and tidy the results table for a single race; returns None if unavailable."""
     try:
         session = fastf1.get_session(year, gp_round, RACE_SESSION)
         session.load(laps=False, telemetry=False, weather=False, messages=False)
@@ -96,12 +85,7 @@ def fetch_race_results(year: int, gp_round: int) -> pd.DataFrame | None:
 
 
 def fetch_season(year: int, request_delay_seconds: float = FASTF1_REQUEST_DELAY_SECONDS) -> pd.DataFrame:
-    """Fetch every completed race in a season and combine into a single DataFrame.
-
-    A delay is applied between rounds to stay under jolpica-f1's rate
-    limit, which matters most on a cold cache where a 429 has no cached
-    response to fall back to.
-    """
+    """Fetch every completed race in a season and combine into a single DataFrame."""
     calendar = get_race_calendar(year)
     completed = get_completed_rounds(year)
     skipped = len(calendar) - len(completed)
@@ -131,14 +115,7 @@ def fetch_all_seasons(
     seasons: list[int] = ALL_SEASONS,
     request_delay_seconds: float = FASTF1_REQUEST_DELAY_SECONDS,
 ) -> pd.DataFrame:
-    """Fetch all configured seasons, saving one CSV per season plus a combined CSV.
-
-    Rounds that haven't been run yet are filtered out using the calendar's
-    own event dates before any API call is made. fetch_race_results still
-    keeps its own try/except as a fallback for the rare case where a race
-    has finished but results aren't published yet, so this can be re-run
-    throughout the season to pick up new results.
-    """
+    """Fetch all configured seasons, saving one CSV per season plus a combined CSV."""
     enable_fastf1_cache()
 
     all_seasons_results = []
@@ -162,12 +139,7 @@ def fetch_all_seasons(
     return combined
 
 def fetch_lap_data(year: int, gp_round: int) -> pd.DataFrame | None:
-    """Fetch lap-by-lap timing data for a single race.
-
-    Separate from fetch_race_results (which only loads session.results)
-    since lap-level data is far larger and only needed from Stage 4
-    onward, not by the Stage 1-3 pipeline.
-    """
+    """Fetch lap-by-lap timing data for a single race."""
     try:
         session = fastf1.get_session(year, gp_round, RACE_SESSION)
         session.load(laps=True, telemetry=False, weather=False, messages=False)
@@ -197,14 +169,7 @@ def fetch_season_laps(
     request_delay_seconds: float = FASTF1_REQUEST_DELAY_SECONDS,
     resume: bool = True,
 ) -> pd.DataFrame:
-    """Fetch lap data for every completed race in a season, saving after each race.
-
-    Saves incrementally (one race at a time) rather than only after the
-    whole season completes, so an interrupted run (e.g. hitting fastf1's
-    hourly rate cap) doesn't lose already-fetched races. With resume=True,
-    races already saved to disk are skipped entirely, so a re-run after
-    a rate-limit reset doesn't waste API calls re-fetching completed work.
-    """
+    """Fetch lap data for every completed race in a season, saving after each race."""
     completed = get_completed_rounds(year)
     rounds = list(completed["RoundNumber"])
 
@@ -238,12 +203,7 @@ def fetch_all_lap_data(
     seasons: list[int] = ALL_SEASONS,
     request_delay_seconds: float = FASTF1_REQUEST_DELAY_SECONDS,
 ) -> pd.DataFrame:
-    """Fetch lap data for all configured seasons, saving one CSV per season plus a combined CSV.
-
-    Individual races are saved as they're fetched (see fetch_season_laps),
-    so this can be safely re-run after an interruption — already-fetched
-    races are loaded from disk instead of re-requested.
-    """
+    """Fetch lap data for all configured seasons, saving one CSV per season plus a combined CSV."""
     enable_fastf1_cache()
 
     all_seasons_laps = []

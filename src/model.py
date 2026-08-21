@@ -1,9 +1,4 @@
-"""Leakage-safe ML classifiers for pre-race top-10 and podium prediction.
-
-Follows Alahmadi et al.'s framing (binary classification on pre-race
-features) rather than Bansal et al.'s raw points regression, to avoid the
-circularity of using final race position as an input.
-"""
+"""ML classifiers for pre-race top-10 and podium prediction."""
 
 import joblib
 import pandas as pd
@@ -26,8 +21,6 @@ TRAIN_SEASONS = [2022, 2023, 2024]
 VALIDATION_SEASON = 2025
 
 # Every column here must be knowable strictly before the race starts.
-# finish_position, points, and status are the current race's *outcome* —
-# never allowed in this list.
 FEATURE_COLUMNS = [
     "grid_position",
     "started_from_pit_lane",
@@ -49,18 +42,7 @@ FEATURE_COLUMNS = [
 
 
 def build_models(positive_class_ratio: float) -> dict:
-    """Build the model dictionary fresh, given this target's class imbalance ratio.
-
-    Random Forest / Extra Trees / Logistic Regression handle imbalance
-    automatically via class_weight="balanced" at fit() time — sklearn
-    recomputes this internally from whatever y is passed in, so it
-    doesn't matter which target is active. XGBoost's scale_pos_weight has
-    no such automatic equivalent: it is a plain number that must be
-    supplied explicitly, and it must match whichever target (top10,
-    roughly balanced, vs. podium, ~85/15) is currently being trained on.
-    Rebuilding this dict per call, rather than once at import time,
-    is what keeps that number correct for both targets.
-    """
+    """Build the model dictionary fresh, given this target's class imbalance ratio."""
     return {
         "logistic_regression": make_pipeline(
             StandardScaler(),
@@ -92,15 +74,7 @@ def add_targets(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def prepare_model_frame(df: pd.DataFrame) -> pd.DataFrame:
-    """Add targets, one-hot encode regulation_era, and cast is_new_team to int.
-
-    Era dummies are reindexed against the fixed ERA_COLUMNS list rather
-    than whatever eras happen to appear in this slice of df. Training
-    data (2022-2025) and 2026 prediction data each contain only one era,
-    so deriving columns per-slice would give the two sides mismatched
-    feature sets at predict time — this was latent through Stage 3
-    because train/validation both fell in the same era by coincidence.
-    """
+    """Add targets, one-hot encode regulation_era, and cast is_new_team to int."""
     df = add_targets(df)
     df["is_new_team"] = df["is_new_team"].astype(int)
     era_dummies = pd.get_dummies(df["regulation_era"], prefix="era")
@@ -110,12 +84,7 @@ def prepare_model_frame(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def get_feature_columns(df: pd.DataFrame) -> list[str]:
-    """Base feature list plus the fixed set of regulation-era columns.
-
-    df is unused — kept as a parameter for call-site compatibility with
-    existing Stage 3 code, but the era columns no longer depend on which
-    rows happen to be in df.
-    """
+    """Base feature list plus the fixed set of regulation-era columns."""
     return FEATURE_COLUMNS + ERA_COLUMNS
 
 
@@ -184,12 +153,7 @@ def run_comparison(df: pd.DataFrame, target_col: str, k: int) -> pd.DataFrame:
 
 
 def get_feature_importance(df: pd.DataFrame, target_col: str, model_name: str = "random_forest") -> pd.DataFrame:
-    """Fit one model on the full training set and return its feature importances, sorted descending.
-
-    Only tree-based models (random_forest, extra_trees, xgboost) expose
-    .feature_importances_; Logistic Regression's coefficients aren't
-    directly comparable on the same scale and aren't handled here.
-    """
+    """Fit one model on the full training set and return its feature importances, sorted descending."""
     prepared = prepare_model_frame(df)
     feature_cols = get_feature_columns(prepared)
     train, _ = temporal_split(prepared)
@@ -206,13 +170,7 @@ def get_feature_importance(df: pd.DataFrame, target_col: str, model_name: str = 
 
 
 def fit_final_model(df: pd.DataFrame, target_col: str, model_name: str = "random_forest"):
-    """Fit the chosen production model on all known history and save it.
-
-    run_comparison() holds 2025 out to compare models fairly. Once a
-    model is chosen for production use, this refits it on 2022-2025
-    combined — every season with a known outcome — rather than leaving
-    2025 unused just because it was a validation set during selection.
-    """
+    """Fit the chosen production model on all known history and save it."""
     prepared = prepare_model_frame(df)
     feature_cols = get_feature_columns(prepared)
     known = prepared[prepared["season"].isin(TRAIN_SEASONS + [VALIDATION_SEASON])]
@@ -227,13 +185,7 @@ def fit_final_model(df: pd.DataFrame, target_col: str, model_name: str = "random
     return fitted_model, output_path
 
 def walk_forward_split(df: pd.DataFrame, target_round: int, target_season: int = 2026) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Train on everything strictly before target_round of target_season; return that round as the held-out set.
-
-    Unlike temporal_split (fixed 2022-2024 train / 2025 validation), this
-    grows the training window round-by-round through the 2026 season --
-    each fit only sees what would genuinely have been known before that
-    specific race, never that race's own outcome or any later round's.
-    """
+    """Train on everything strictly before target_round of target_season; return that round as the held-out set."""
     prior_seasons = df[df["season"] < target_season]
     prior_2026_rounds = df[(df["season"] == target_season) & (df["round"] < target_round)]
     train = pd.concat([prior_seasons, prior_2026_rounds], ignore_index=True)

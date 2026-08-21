@@ -1,6 +1,5 @@
 """Full end-to-end 2026 season Monte Carlo simulation: real completed
-rounds plus recursively simulated remaining rounds.
-"""
+rounds plus recursively simulated remaining rounds."""
 import joblib
 import pandas as pd
 

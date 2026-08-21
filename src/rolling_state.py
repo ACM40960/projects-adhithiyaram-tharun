@@ -1,13 +1,5 @@
 """Incremental rolling-form state, used to featurise simulated future
-races the same way src/features.py featurises real ones.
-
-features.py computes driver_avg_finish_last{3,5}, driver_points_last{3,5},
-and driver_form_ewm from the full historical sequence via shift+rolling
-and shift+ewm. Once simulating rounds that don't exist in that history
-yet, those pandas calls have nothing to operate on — each simulated
-race's outcome has to update these values by hand, one round at a time,
-using the exact recurrence pandas uses internally.
-"""
+races the same way src/features.py featurises real ones."""
 from __future__ import annotations
 
 from collections import deque
@@ -19,22 +11,8 @@ MAX_WINDOW = 5
 
 @dataclass
 class RollingForm:
-    """Rolling-form state for one driver or one constructor.
-
-    finish_history/points_history hold at most the last 5 values seen
-    (oldest dropped once full) — enough for both the last-3 and last-5
-    windows features.py exposes.
-
-    ewm_numerator/ewm_denominator jointly reproduce pandas'
-    `.ewm(alpha=EWM_ALPHA, adjust=True).mean()` exactly:
-        num_t = x_t + (1 - alpha) * num_{t-1}
-        den_t = 1   + (1 - alpha) * den_{t-1}
-        ewm_t = num_t / den_t
-    Matching this exactly (not an approximation) matters: the classifier
-    was trained on features.py's pandas-computed EWM values, and a
-    different recurrence would create a train/simulation mismatch the
-    model never saw during fitting.
-    """
+    """Rolling-form state for one driver or one constructor. Reproduces
+    pandas' `.ewm(alpha=EWM_ALPHA, adjust=True).mean()` exactly."""
 
     finish_history: deque = field(default_factory=lambda: deque(maxlen=MAX_WINDOW))
     points_history: deque = field(default_factory=lambda: deque(maxlen=MAX_WINDOW))

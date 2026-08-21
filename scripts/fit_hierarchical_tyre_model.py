@@ -29,10 +29,7 @@ def main() -> None:
     )
     print(f"Elapsed: {time.time() - start:.0f}s")
 
-    # Print and save the summary FIRST, before the fragile netcdf write --
-    # a save-format failure must never again cost a completed 13+ minute
-    # sampling run (see earlier crash: ValueError, missing h5netcdf,
-    # trace lost because it crashed before this point was ever reached).
+    # Save the summary before the netcdf write, in case that fails.
     summary = az.summary(
         trace, var_names=["mu_degradation", "sigma_degradation", "sigma", "skew_a", "skew_b"]
     )

@@ -1,9 +1,4 @@
-"""Fit and save the production model used by the season simulator.
-
-Kept separate from train_classifier.py on purpose: that script's job is
-model comparison/diagnostics across four algorithms and two targets; this
-script's job is producing the one persisted artifact Stage 5 depends on.
-"""
+"""Fit and save the production model used by the season simulator."""
 import pandas as pd
 
 from src.config import PROCESSED_DATA_DIR

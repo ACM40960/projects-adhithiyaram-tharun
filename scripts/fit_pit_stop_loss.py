@@ -5,12 +5,7 @@ from src.config import MODELS_DIR, RAW_DATA_DIR
 
 
 def fit_pit_stop_loss(laps: pd.DataFrame) -> dict:
-    """Estimate pit-stop cost as (in-lap or out-lap time) minus that
-    driver's typical green-flag stint pace in the same race, averaged
-    across every real pit event in the dataset. Only positive gaps are
-    kept -- a negative "loss" would mean the in/out lap was somehow
-    faster than normal racing pace, which isn't a genuine pit cost.
-    """
+    """Estimate pit-stop cost as in/out-lap time minus typical green-flag pace, averaged across all pit events."""
     laps = laps.dropna(subset=["LapTime"]).copy()
     losses = []
 

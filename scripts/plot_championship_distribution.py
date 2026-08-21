@@ -1,6 +1,4 @@
-"""Violin plot of full Monte Carlo championship point distributions —
-shows variance propagation directly, not just summary statistics.
-"""
+"""Violin plot of full Monte Carlo championship point distributions."""
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -31,8 +29,7 @@ def main() -> None:
         body.set_alpha(0.6)
     parts["cmeans"].set_color("black")
 
-    # Overlay p5-p95 as explicit whiskers, since default violin extrema
-    # are full min/max (noisier, less standard than percentile bands).
+    # Overlay p5-p95 as explicit whiskers.
     for i, driver in enumerate(top_drivers, start=1):
         p5, p95 = plot_data[driver].quantile([0.05, 0.95])
         ax.plot([i, i], [p5, p95], color="black", linewidth=1.2, alpha=0.7)

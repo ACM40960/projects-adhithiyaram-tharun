@@ -99,13 +99,18 @@ f1_race_predictor/
 │   ├── run_physics_season_simulator.py  # v3: full recursive season (physics-based)
 │   ├── calibration_check_2025.py        # 2025 held-out calibration
 │   └── validate_2026_predictions.py     # Walk-forward validation against real 2026 rounds
+├── dashboard/                        # Streamlit dashboard -- viewer over data/processed/ and models/
+│   ├── Home.py
+│   ├── pages/                        # 1 page per view (predictions, driver deep-dive, tyre
+│   │                                  # degradation, validation, what-if simulator, methodology,
+│   │                                  # data & reproducibility)
+│   └── utils/                        # Cached data loaders and shared Plotly styling
 ├── docs/
 │   └── market_analysis.md           # Regulatory and competitive landscape, 2022-2026
 ├── data/
 │   ├── raw/                         # Retrieved race and lap data (not version-controlled)
 │   └── processed/                   # Derived tables, predictions, validation results
 ├── models/                          # Fitted model artefacts (not version-controlled)
-├── notebooks/
 ├── requirements.txt
 └── README.md
 ```
@@ -137,11 +142,14 @@ python -m scripts.build_features
 python -m scripts.train_classifier
 python -m scripts.persist_production_model
 python -m scripts.plot_confusion_and_roc
+python -m scripts.plot_feature_importance
 
 # 4. Tyre degradation model (Stage 4 / Phase 1)
 python -m scripts.fetch_laps
 python -m scripts.fit_tyre_model                 # single-driver validation
 python -m scripts.fit_hierarchical_tyre_model     # full 22-driver hierarchical fit
+python -m scripts.fit_wet_fallback                # wet/intermediate grid-wide fit (see Limitations)
+python -m scripts.plot_tyre_degradation
 
 # 5. Monte Carlo season simulation (Stage 5)
 python -m scripts.run_season_simulator            # v1: completed rounds only
@@ -154,13 +162,22 @@ python -m scripts.fit_pit_stop_loss
 python -m scripts.build_noise_pool
 python -m scripts.build_race_simulator_inputs
 python -m scripts.run_physics_season_simulator    # v3: full season, physics-based
+python -m scripts.plot_championship_comparison
+python -m scripts.plot_championship_distribution
+python -m scripts.plot_methodology_diagram
 
 # 7. Validation (Stage 6)
 python -m scripts.calibration_check_2025
+python -m scripts.plot_calibration
 python -m scripts.validate_2026_predictions
+
+# 8. Interactive dashboard (Streamlit)
+streamlit run dashboard/Home.py
 ```
 
-Each script prints diagnostics and writes its output to `data/processed/`. Commentary on each stage, including issues identified and resolved during development, is recorded in `PROJECT_STATUS.md`.
+Each script prints diagnostics and writes its output to `data/processed/`. Commentary on issues identified and resolved during development is recorded inline in the relevant module or script's docstring.
+
+The dashboard (`dashboard/`) is a separate Streamlit layer on top of the pipeline's saved outputs -- it reads already-generated files under `data/processed/` and `models/` rather than recomputing anything, with one exception: its What-If Simulator page (`dashboard/pages/5_What_If_Simulator.py`) runs the lap-by-lap race simulator live against a user-chosen grid and tyre strategy.
 
 ---
 
@@ -270,7 +287,7 @@ The model identifies the correct 2026 title favourite from lap-time physics alon
 
 - `grid_position` is the most important pre-race feature across every prediction target, with a stronger effect on podium prediction than on top-10 prediction, consistent with Alahmadi et al. (2026).
 - Driver-level form outranks constructor-level form in feature importance.
-- Tyre degradation follows the expected physical ordering only once sufficient data is pooled; small samples produced physically implausible coefficient signs during development (see `PROJECT_STATUS.md` for the wet/intermediate compound case).
+- Tyre degradation follows the expected physical ordering only once sufficient data is pooled; small samples produced physically implausible coefficient signs during development (see `src/tyre_model.py`'s `WET_FALLBACK_MULTIPLIER` docstring for the wet/intermediate compound case).
 - Walk-forward validation shows a measurable performance gap attributable to the regulation change: ROC-AUC falls from 0.836 (2025) to 0.794 (2026, unseen data) — a modest, expected effect consistent with the regulation-reset risk identified before validation, rather than a modelling failure.
 - Two-level variance propagation (constructor and driver effects, held fixed per simulated season) prevents championship probabilities from collapsing toward overconfident 0% or 100% outcomes, the failure mode described in Demsyn-Jones (2019).
 - The lap-by-lap physics simulation, built without reference to market data, arrives at the same 2026 title favourite identified by real-world betting markets.

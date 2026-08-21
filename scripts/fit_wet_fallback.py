@@ -1,11 +1,4 @@
-"""Grid-wide wet/intermediate degradation fallback.
-
-Supplements the dry-compound hierarchical model (scripts/
-fit_hierarchical_tyre_model.py): wet/intermediate laps are too sparse
-per driver to support hierarchical per-driver estimates (see
-src/tyre_model.py ALL_COMPOUNDS docstring), so this fits one shared
-rate across the full grid instead.
-"""
+"""Grid-wide wet/intermediate degradation fallback, supplementing the dry-compound hierarchical model."""
 import joblib
 import pandas as pd
 

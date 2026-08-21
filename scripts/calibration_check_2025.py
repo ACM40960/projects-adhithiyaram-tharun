@@ -1,12 +1,5 @@
 """Calibration check: do the classifier's predicted P(top-10)
-probabilities match actual top-10 rates on held-out 2025 data?
-
-Uses a model trained ONLY on 2022-2024, matching Stage 3's exact
-train/validation split -- NOT the persisted production classifier,
-which is deliberately refit on 2022-2025 combined for 2026 predictions.
-Evaluating that model against 2025 would be circular, since it has
-already seen 2025 during training.
-"""
+probabilities match actual top-10 rates on held-out 2025 data?"""
 import numpy as np
 import pandas as pd
 from sklearn.calibration import calibration_curve
@@ -37,8 +30,7 @@ def compute_calibration(df: pd.DataFrame) -> pd.DataFrame:
 
     bin_edges = np.linspace(0, 1, N_BINS + 1)
     bin_counts = pd.cut(y_prob, bins=bin_edges).value_counts().sort_index().to_numpy()
-    # calibration_curve silently drops empty bins, so only keep counts
-    # for bins that actually appear in its output, in the same order.
+    # calibration_curve silently drops empty bins.
     nonempty_counts = bin_counts[bin_counts > 0]
 
     return pd.DataFrame(

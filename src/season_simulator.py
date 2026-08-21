@@ -1,10 +1,4 @@
-"""Monte Carlo season simulator with two-level variance propagation.
-
-Combines Stage 3's leakage-safe classifier with constructor-level and
-driver-level random effects, held fixed across a simulated season, so
-that championship probabilities are not artificially overconfident
-(Demsyn-Jones, 2019).
-"""
+"""Monte Carlo season simulator with two-level variance propagation."""
 from __future__ import annotations
 
 import numpy as np
@@ -14,11 +8,7 @@ POINTS_TABLE = {1: 25, 2: 18, 3: 15, 4: 12, 5: 10, 6: 8, 7: 6, 8: 4, 9: 2, 10: 1
 
 
 def compute_strength_scores(probabilities: np.ndarray) -> np.ndarray:
-    """Convert P(top-10) into an unbounded log-odds skill score.
-
-    Clipping avoids -inf/inf when the classifier is fully confident
-    (probability of exactly 0 or 1), which can happen with tree models.
-    """
+    """Convert P(top-10) into an unbounded log-odds skill score."""
     probabilities = np.clip(probabilities, 1e-6, 1 - 1e-6)
     return np.log(probabilities / (1 - probabilities))
 
@@ -30,13 +20,7 @@ def precompute_race_strengths(
     feature_columns: list[str],
     id_column: str = "driver_code",
 ) -> dict[object, pd.Series]:
-    """Run the classifier once per race, not once per simulation.
-
-    Returns, for each race, a Series of log-odds strength scores indexed
-    by driver_code. Computed a single time and reused across all 10,000
-    simulated seasons, since it depends only on pre-race features that
-    don't change between simulation runs.
-    """
+    """Run the classifier once per race, not once per simulation."""
     strengths = {}
     for race_id in schedule:
         features = race_features_by_id[race_id]
@@ -52,15 +36,7 @@ def draw_season_form(
     constructor_sigma: float = 0.10,
     rng: np.random.Generator | None = None,
 ) -> dict[str, float]:
-    """Draw one season-level form adjustment per driver.
-
-    Adjustment = constructor effect (shared by team-mates) + individual
-    driver effect, both on the log-odds scale, both drawn once and held
-    fixed for every race in this simulated season. This is what creates
-    the race-to-race correlation the Demsyn-Jones paper argues is
-    essential — without it, every race is an independent draw and the
-    resulting championship probabilities come out overconfident.
-    """
+    """Draw one season-level form adjustment per driver (constructor effect + driver effect)."""
     rng = rng or np.random.default_rng()
     constructors = sorted(set(driver_constructor_map.values()))
     constructor_effect = {c: rng.normal(0, constructor_sigma) for c in constructors}
@@ -75,14 +51,7 @@ def simulate_single_race(
     form_adjustment: dict[str, float],
     rng: np.random.Generator,
 ) -> pd.Series:
-    """Simulate one race and return a valid 1..N finishing order.
-
-    Scores = base strength + season-level form + fresh per-race noise,
-    then rank. This guarantees every driver gets a distinct position
-    (unlike sampling top-10 status independently per driver, which can
-    assign two drivers the same position), and recovers the classifier's
-    implied probabilities on average — the Gumbel-max ranking trick.
-    """
+    """Simulate one race and return a valid 1..N finishing order (Gumbel-max ranking)."""
     adjustment = strength.index.map(form_adjustment).fillna(0.0).to_numpy()
     noise = rng.gumbel(size=len(strength))
     race_score = strength.to_numpy() + adjustment + noise
@@ -101,12 +70,7 @@ def simulate_season_mc(
     constructor_sigma: float = 0.10,
     seed: int | None = None,
 ) -> pd.DataFrame:
-    """Run n_simulations full seasons, return one row per simulation.
-
-    Columns are driver codes, values are total championship points for
-    that simulated season. This wide format makes the aggregation step
-    (compute_championship_prob) a set of simple pandas operations.
-    """
+    """Run n_simulations full seasons, return one row per simulation (columns = driver codes)."""
     rng = np.random.default_rng(seed)
     drivers = sorted(driver_constructor_map)
     driver_index = {driver: i for i, driver in enumerate(drivers)}
@@ -129,12 +93,7 @@ def simulate_season_mc(
 
 
 def compute_championship_prob(points_df: pd.DataFrame) -> pd.DataFrame:
-    """Aggregate per-simulation points into championship probabilities.
-
-    p_top3_final ranks drivers against each other within each simulated
-    season (not against a driver's own point distribution), matching
-    what "finishing top-3 in the championship" actually means.
-    """
+    """Aggregate per-simulation points into championship probabilities."""
     n_sims = len(points_df)
     winner_counts = points_df.idxmax(axis=1).value_counts()
     ranks = points_df.rank(axis=1, ascending=False, method="min")

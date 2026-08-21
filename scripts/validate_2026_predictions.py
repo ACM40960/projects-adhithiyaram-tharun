@@ -1,13 +1,5 @@
 """Stage 6: walk-forward validation of the top-10 classifier against
-real, completed 2026 rounds.
-
-For each completed round, refits the classifier using ONLY data that
-would genuinely have been known before that race -- 2022-2024 plus
-whichever earlier 2026 rounds have already happened -- then scores that
-round and compares predicted P(top-10) against the real outcome. This is
-re-run any time the season progresses further: it automatically covers
-whichever rounds are present in features.csv, no hardcoded round count.
-"""
+real, completed 2026 rounds."""
 import pandas as pd
 
 from src.config import PROCESSED_DATA_DIR

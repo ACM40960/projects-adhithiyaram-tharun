@@ -1,8 +1,4 @@
-"""Consolidate every Phase 1/2 fitted input into one params object for
-the race simulator: per-driver degradation rates, fuel/first-lap
-effects, average baseline pace, shared noise params, z-score
-normalization stats, grid penalty, and pit-stop loss.
-"""
+"""Consolidate every Phase 1/2 fitted input into one params object for the race simulator."""
 import pickle
 
 import joblib
@@ -26,24 +22,10 @@ def main() -> None:
     laps = pd.read_csv(RAW_DATA_DIR / "lap_data_all.csv")
     pooled = prepare_all_driver_pooled_laps(laps, GRID_2026)
 
-    # Recency-weighted baseline_pace: a flat career average conflates a
-    # driver's 2022 form with their 2026 form, which is wrong whenever a
-    # team's competitiveness shifts across seasons (confirmed: VER's flat
-    # average made him look fastest+most-consistent in the field, driven
-    # by his dominant 2022-2023 Red Bull seasons, while real-world 2026
-    # data shows him 7th in the standings due to reduced car
-    # competitiveness this season -- his fitted baseline never reflected
-    # that shift). Real-world validation: Kimi Antonelli (ANT) leads the
-    # actual 2026 championship with ~74-78% market-implied title
-    # probability; a flat-average model gave him only 11.5% while VER got
-    # 61%, exactly backwards.
-    #
-    # Fix: weight each of a driver's fitted races by recency (exponential
-    # decay per season gap from 2026), so a 2022 result barely counts
-    # while a 2026 result counts heavily. season_weight below gives 2026
-    # races the strongest possible weight (1.0), with older seasons
-    # decaying by RECENCY_DECAY per year back.
-    RECENCY_DECAY = 0.08  # far more aggressive: a 2025 race counts ~8% as much as a 2026 race
+    # Recency-weighted baseline_pace: a flat career average would let old
+    # seasons outweigh current form. RECENCY_DECAY gives 2026 races full
+    # weight (1.0), decaying per year back.
+    RECENCY_DECAY = 0.08
 
     race_driver_map = pooled[["race_id", "driver_id"]].drop_duplicates().set_index("race_id")["driver_id"]
     baseline_means = trace.posterior["baseline_pace"].mean(dim=["chain", "draw"]).values
@@ -57,7 +39,7 @@ def main() -> None:
 
     current_season = 2026
     race_meta["season_weight"] = RECENCY_DECAY ** (current_season - race_meta["season"])
-    
+
     weight_by_season_driver = race_meta.groupby(["driver_id", "season"])["season_weight"].sum()
     print("\n2026 weight share for key drivers:")
     for driver_idx, driver_code in enumerate(["VER", "ANT", "LEC"]):
@@ -84,10 +66,7 @@ def main() -> None:
     driver_relative_offset = race_meta.groupby("driver_id", group_keys=False).apply(weighted_mean)
     driver_relative_std = race_meta.groupby("driver_id", group_keys=False).apply(weighted_std)
 
-    # Guard: a driver whose ONLY fitted races are all in one season has
-    # zero within-group variance under the weighted formula in edge
-    # cases -- fall back to the population-wide average std, same
-    # pattern used for the unweighted version.
+    # Guard against zero variance for drivers with only one season fitted.
     population_avg_std = float(race_meta.groupby("driver_id", group_keys=False).apply(
         lambda g: g["baseline_relative_to_circuit"].std(ddof=0)
     ).mean())

@@ -1,10 +1,4 @@
-"""Fit the grid-to-lap-1 time-loss penalty from real historical data.
-
-Compares each driver's real grid position to their real position after
-lap 1, converted to an approximate time cost via the field's typical
-lap-1 pace spread. Feeds src/race_simulator.py's starting-position
-penalty, replacing a placeholder with a value grounded in actual data.
-"""
+"""Fit the grid-to-lap-1 time-loss penalty from real historical data."""
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
@@ -22,9 +16,7 @@ def build_grid_vs_lap1_dataset(laps: pd.DataFrame, results: pd.DataFrame) -> pd.
         on=["season", "round", "driver_code"],
     )
 
-    # Gap to the fastest lap-1 time in that race — a proxy for how much
-    # grid position cost a driver in the opening-lap scramble, isolating
-    # it from that race's absolute pace level (circuit, weather, etc.).
+    # Gap to the fastest lap-1 time in that race.
     merged["lap1_gap_to_best"] = merged.groupby(["season", "round"])["LapTime_seconds"].transform(
         lambda s: s - s.min()
     )

@@ -1,9 +1,4 @@
-"""Confusion matrices and ROC curves for the production classifier
-(Random Forest), on both targets. Addresses the project-coordinator
-guidance that accuracy alone is insufficient -- a confusion matrix
-should precede derived metrics (precision/recall/F1/AUC), and AUC
-should be accompanied by the actual ROC curve, not just the number.
-"""
+"""Confusion matrices and ROC curves for the production classifier (Random Forest), on both targets."""
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.metrics import ConfusionMatrixDisplay, RocCurveDisplay, confusion_matrix
@@ -48,9 +43,7 @@ def main() -> None:
     for ax_idx, (target_col, label) in enumerate(TARGETS.items()):
         y_true, y_pred, y_prob = fit_and_score(df, target_col)
 
-        # Confusion matrix, normalized by true class (row-normalized,
-        # each row sums to 1) -- the standard normalization for classes
-        # with different sizes, per the coordinator's guidance.
+        # Row-normalized: each row sums to 1.
         cm = confusion_matrix(y_true, y_pred, normalize="true")
         disp = ConfusionMatrixDisplay(cm, display_labels=["Not " + label, label])
         disp.plot(ax=axes_cm[ax_idx], cmap="Blues", values_format=".2f", colorbar=False)

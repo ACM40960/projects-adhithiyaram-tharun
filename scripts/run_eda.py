@@ -43,11 +43,7 @@ def summarize_structure(df: pd.DataFrame) -> None:
 
 
 def plot_grid_vs_finish_by_era(df: pd.DataFrame) -> None:
-    """Scatter of grid vs. finish position, split by regulation era.
-
-    A visibly different relationship between the two panels would signal
-    that pre-2026 form may not transfer to the 2026 regulation set.
-    """
+    """Scatter of grid vs. finish position, split by regulation era."""
     finished = df.dropna(subset=["grid_position", "finish_position"]).copy()
     finished["finish_position"] = pd.to_numeric(finished["finish_position"], errors="coerce")
     finished = finished.dropna(subset=["finish_position"])
@@ -86,12 +82,7 @@ def plot_points_distribution(df: pd.DataFrame) -> None:
 
 
 def plot_constructors_per_season(df: pd.DataFrame) -> None:
-    """Bar chart of constructor count per season, after name normalization.
-
-    Expected to show 10 constructors for 2022-2025 and 11 for 2026
-    (Cadillac's entry). A different count signals a constructor name that
-    CONSTRUCTOR_NAME_MAP has not normalized correctly.
-    """
+    """Bar chart of constructor count per season, after name normalization."""
     counts = df.groupby("season")["constructor"].nunique()
 
     fig, ax = plt.subplots(figsize=(6, 4))

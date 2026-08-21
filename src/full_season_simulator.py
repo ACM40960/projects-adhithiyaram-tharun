@@ -1,15 +1,5 @@
 """Full-season Monte Carlo simulator covering completed and not-yet-run
-rounds of a season.
-
-Completed rounds use real, fixed pre-race features (fast path: strengths
-precomputed once, reused across all simulations, per
-src/season_simulator.py). Future rounds have no real features yet, so
-each simulated season recursively: simulates qualifying from a fitted
-model, builds that round's features from rolling-form state carried
-forward from prior (real or already-simulated) rounds, scores them with
-the top-10 classifier, and simulates the race — the same sequence a real
-season goes through, one round at a time.
-"""
+rounds of a season."""
 from __future__ import annotations
 
 import copy
@@ -33,12 +23,7 @@ CLASSIFIER_FEATURE_COLUMNS = FEATURE_COLUMNS + ERA_COLUMNS
 
 
 def get_future_rounds(season: int, completed_rounds: set[int]) -> list[int]:
-    """Remaining calendar rounds not yet reflected in features.csv.
-
-    Mirrors data_fetch.py's get_completed_rounds() but inverted: the full
-    season calendar is announced in advance, so future round numbers are
-    knowable even before those races happen.
-    """
+    """Remaining calendar rounds not yet reflected in features.csv."""
     schedule = fastf1.get_event_schedule(season, include_testing=False)
     all_rounds = set(schedule["RoundNumber"])
     return sorted(all_rounds - completed_rounds)
@@ -102,23 +87,12 @@ def simulate_full_season_mc(
     seed: int | None = None,
 ) -> pd.DataFrame:
     """Simulate n_simulations full seasons: real completed rounds plus
-    recursively simulated future rounds, batched across simulations.
-
-    Model calls (classifier + qualifying) are made ONCE PER FUTURE ROUND
-    across all simulations at once, rather than once per simulation per
-    round -- sklearn's RandomForest has significant fixed per-call
-    overhead that dominates runtime when called on tiny (~22-row)
-    batches thousands of times. Batching all n_simulations' rows for a
-    given round into one call is mathematically identical (same random
-    draws, same recursive dependency on prior simulated rounds) but
-    removes that repeated overhead almost entirely.
-    """
+    recursively simulated future rounds, batched across simulations."""
     rng = np.random.default_rng(seed)
     driver_index = {driver: i for i, driver in enumerate(drivers)}
     points_matrix = np.zeros((n_simulations, len(drivers)))
 
-    # Completed rounds: cheap (no model calls, just precomputed-strength
-    # lookups), so a per-simulation loop here isn't worth restructuring.
+    # Completed rounds: precomputed-strength lookups only.
     form_adjustments = []
     for sim in range(n_simulations):
         form_adjustment = draw_season_form(
@@ -134,9 +108,7 @@ def simulate_full_season_mc(
                 if points:
                     points_matrix[sim, driver_index[driver]] += points
 
-    # Future rounds: state is per-simulation (each simulation's rolling
-    # form diverges once results start differing), but model calls are
-    # batched across all simulations for a given round.
+    # Future rounds: per-simulation state, but model calls batched per round.
     driver_states = [copy.deepcopy(initial_driver_states) for _ in range(n_simulations)]
     constructor_states = [copy.deepcopy(initial_constructor_states) for _ in range(n_simulations)]
     season_race_counts = [dict(initial_season_race_counts) for _ in range(n_simulations)]

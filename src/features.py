@@ -1,9 +1,7 @@
 """Every function computes features using only information available
 strictly before the race being featured. Column names match
 src/data_fetch.py's actual output: driver_code, constructor, season,
-round (there is no explicit race_date column — season+round is already
-a valid chronological sort key since round numbers are assigned in
-calendar order).
+round.
 
 Sprint races are excluded entirely: data_fetch.py only ever pulls the
 'R' (main race) session, so there is nothing to filter here.
@@ -18,11 +16,7 @@ SORT_KEYS = ["season", "round"]
 
 
 def _rolling_shifted(series: pd.Series, groups: pd.Series, window: int, agg: str) -> pd.Series:
-    """Shift a series by one row within each group, then take a rolling aggregate.
-
-    Shifting before rolling is what guarantees race i's feature only
-    reflects races < i.
-    """
+    """Shift a series by one row within each group, then take a rolling aggregate."""
     shifted = series.groupby(groups).shift(1)
     rolled = shifted.groupby(groups).rolling(window, min_periods=1)
     return getattr(rolled, agg)().reset_index(level=0, drop=True)
@@ -39,13 +33,7 @@ def _ewm_shifted(series: pd.Series, groups: pd.Series, alpha: float) -> pd.Serie
 
 
 def drop_unclassified(df: pd.DataFrame) -> pd.DataFrame:
-    """Drop rows with no official classification (no finish_position at all).
-
-    A small number of rows (e.g. did-not-start) have no finish_position
-    because they were never classified, not because of a formatting issue.
-    These can't sensibly contribute to or receive a rolling-form value, so
-    they're dropped before feature engineering rather than imputed.
-    """
+    """Drop rows with no official classification (no finish_position at all)."""
     before = len(df)
     df = df.dropna(subset=["finish_position"]).copy()
     dropped = before - len(df)
@@ -55,16 +43,7 @@ def drop_unclassified(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def handle_missing_grid_position(df: pd.DataFrame) -> pd.DataFrame:
-    """Flag and impute missing grid_position values.
-
-    A missing grid_position typically means a pit-lane start or similar
-    non-standard grid assignment, not a genuinely average one. Imputing
-    with the median would misrepresent these as ordinary mid-field
-    starts, so instead: flag them explicitly (same pattern as
-    is_new_team) and fill with one worse than the largest real grid
-    slot for that race, since a pit-lane start is realistically a worse
-    starting position than anyone actually on the grid.
-    """
+    """Flag and impute missing grid_position values."""
     df = df.copy()
     df["started_from_pit_lane"] = df["grid_position"].isna().astype(int)
 
@@ -93,11 +72,7 @@ def add_driver_rolling_form(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_constructor_rolling_form(df: pd.DataFrame) -> pd.DataFrame:
-    """Add rolling constructor-form features on the normalized constructor name.
-
-    Uses `constructor` (already normalized by CONSTRUCTOR_NAME_MAP in
-    data_fetch.py) so a Kick Sauber -> Audi rebrand doesn't reset history.
-    """
+    """Add rolling constructor-form features on the normalized constructor name."""
     df = df.sort_values(["constructor", *SORT_KEYS]).copy()
 
     for window in ROLLING_WINDOWS:
@@ -113,13 +88,7 @@ def add_constructor_rolling_form(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_cold_start_flag(df: pd.DataFrame) -> pd.DataFrame:
-    """Flag rows with no constructor history and impute form columns with a neutral default.
-
-    A team with zero history (e.g. Cadillac in 2026) gets is_new_team=True
-    and its rolling-form columns filled with the season-wide average rather
-    than left as NaN or defaulted to 0, since 0 would read as "best possible
-    result" to a model instead of "no information."
-    """
+    """Flag rows with no constructor history and impute form columns with a neutral default."""
     df = df.copy()
     df["is_new_team"] = df["constructor_races_completed"] == 0
 

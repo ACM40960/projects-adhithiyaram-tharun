@@ -1,8 +1,4 @@
-"""Project-wide configuration: paths, seasons, and constants.
-
-See docs/market_analysis.md for the reasoning behind the season split and
-the constructor name mapping.
-"""
+"""Project-wide configuration: paths, seasons, and constants."""
 
 from pathlib import Path
 
@@ -21,11 +17,7 @@ ALL_SEASONS = TRAIN_SEASONS + [VALIDATION_SEASON, PREDICTION_SEASON]
 
 RACE_SESSION = "R"
 
-# Minimum delay between consecutive fastf1 requests. jolpica-f1
-# (api.jolpi.ca), one of fastf1's data sources, enforces a public rate
-# limit; fetching rounds back-to-back with no delay triggers 429s. This
-# matters most on a cold cache, where there's no cached response to fall
-# back to. See src/data_fetch.py.
+# Minimum delay between consecutive fastf1 requests; avoids 429s.
 FASTF1_REQUEST_DELAY_SECONDS = 1.5
 
 REGULATION_ERA = {
@@ -36,17 +28,9 @@ REGULATION_ERA = {
     2026: "next_gen_2026",
 }
 
-# Fixed regardless of which seasons are present in a given DataFrame slice.
-# pd.get_dummies only emits columns for categories it actually sees, and
-# training data (2022-2025) vs. 2026 prediction data each contain only one
-# era -- deriving era columns per-slice would give the two sides mismatched
-# feature sets at predict time. See src/model.py, prepare_model_frame.
 ERA_COLUMNS = [f"era_{era}" for era in sorted(set(REGULATION_ERA.values()))]
 
-# Maps historical constructor names onto their 2026 identity so that
-# team-level features join correctly across a rebrand. See
-# docs/market_analysis.md, section 3. Verify against the exact strings
-# fastf1 returns before relying on this for feature engineering.
+# Maps historical constructor names onto their 2026 identity across a rebrand.
 CONSTRUCTOR_NAME_MAP = {
     "Alfa Romeo": "Audi",
     "Alfa Romeo Racing": "Audi",
@@ -60,7 +44,7 @@ CONSTRUCTOR_NAME_MAP = {
     "Visa Cash App RB Formula One Team": "Racing Bulls",
 }
 
-# Teams with no prior-season history in this dataset; see docs/market_analysis.md.
+# Teams with no prior-season history in this dataset
 NEW_ENTRANTS_2026 = ["Cadillac"]
 
 for _directory in (RAW_DATA_DIR, PROCESSED_DATA_DIR, CACHE_DIR, MODELS_DIR):

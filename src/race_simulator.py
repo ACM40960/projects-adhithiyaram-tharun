@@ -1,21 +1,6 @@
-"""Single-race lap-by-lap Monte Carlo simulator, using the fitted
-hierarchical tyre model, fitted grid penalty, and fitted pit-stop loss.
-Multi-strategy: each driver samples one strategy from a fixed menu.
-
-Noise is sampled from a large PRE-DRAWN pool (see scripts/
-build_noise_pool.py), not generated live via PyMC -- an initial version
-called pm.draw() once per driver per race, which recompiles PyTensor's
-sampler from scratch every call (~6.6s for one 22-driver race, almost
-entirely compilation overhead). Since sigma/skew_a/skew_b are fixed
-population-wide constants, drawing a large iid pool once and indexing
-into it with numpy during simulation is statistically equivalent and
-removes PyTensor from the hot path entirely.
-
-No overtaking dynamics -- each driver's race time is computed as if
-racing alone on track. Wet/intermediate compounds use HARD's dry
-degradation rate x WET_FALLBACK_MULTIPLIER (see src/tyre_model.py),
-since the fitted wet-compound coefficients were physically implausible.
-"""
+"""Single-race lap-by-lap Monte Carlo simulator: fitted hierarchical tyre
+model, grid penalty, pit-stop loss. No overtaking dynamics -- each
+driver's race time is computed as if racing alone on track."""
 from __future__ import annotations
 
 import numpy as np

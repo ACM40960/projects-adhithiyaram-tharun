@@ -1,17 +1,6 @@
 """Plot expected lap-time-vs-laps-since-pit curves per compound, using
 the fitted hierarchical tyre model's population-level degradation rates.
-
-Anchored so all three compounds start at the same fresh-tyre pace at
-lap 0 and diverge from there -- the model only differentiates
-DEGRADATION RATE by compound, not starting pace, so plotting the raw
-z-scored expected_pace formula directly makes the lines cross near the
-pool's mean laps-since-pit (~lap 12) rather than fan out from a common
-origin, which reads as physically backwards to anyone unfamiliar with
-the z-scoring. This version re-centers each compound's line so lap 0
-is the shared reference point, matching the physical intuition that a
-fresh tyre's pace is the same regardless of which compound it is --
-only the WEAR RATE differs.
-"""
+Curves are re-centered so lap 0 is a shared reference point across compounds."""
 import joblib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -38,9 +27,7 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(7, 5))
     for compound, rate in COMPOUND_RATES.items():
-        # Degradation added relative to lap 0, not relative to the pool
-        # mean -- this is what anchors all three lines to a shared
-        # starting point instead of letting them cross mid-plot.
+        # Degradation added relative to lap 0, not the pool mean.
         lap_times = avg_baseline + rate * (laps_z - laps_z_at_zero)
         ax.plot(laps, lap_times, label=compound, color=COLORS[compound], linewidth=2)
 

@@ -1,15 +1,5 @@
 """Physics-based (v3) full-season Monte Carlo simulator: uses the
-lap-by-lap race_simulator instead of classifier-score ranking. Mirrors
-full_season_simulator.py's completed/future round structure and
-qualifying-model batching, but swaps the per-race ranking mechanism.
-
-Does NOT use the classifier-style season-level form_adjustment
-(constructor/driver effects) -- the race simulator's own race-to-race
-baseline variance (rng.normal(baseline_mean, baseline_std) per driver
-per race, see src/race_simulator.py) is this variant's persistence
-mechanism. Stacking both would double-count the same real-world
-phenomenon (car/driver form varying race to race).
-"""
+lap-by-lap race_simulator instead of classifier-score ranking."""
 from __future__ import annotations
 
 import copy
@@ -55,11 +45,7 @@ def simulate_physics_season_mc(
     driver_index = {driver: i for i, driver in enumerate(drivers)}
     points_matrix = np.zeros((n_simulations, len(drivers)))
 
-    # Completed rounds: real, fixed grid positions. Still re-simulated
-    # per sim -- the race simulator's own noise/baseline-variance draws
-    # give a distribution of plausible outcomes given what was actually
-    # knowable pre-race, same design intent as v1's completed-rounds
-    # simulator.
+    # Completed rounds: real, fixed grid positions, still re-simulated per sim.
     for round_num in completed_schedule:
         total_laps = get_lap_count_for_round(
             round_num, completed_event_names[round_num], lap_counts, lap_count_fallback
@@ -72,10 +58,7 @@ def simulate_physics_season_mc(
                 if points:
                     points_matrix[sim, driver_index[driver]] += points
 
-    # Future rounds: recursive rolling state per sim, qualifying model
-    # batched across sims (same reasoning as full_season_simulator.py --
-    # sklearn's fixed per-call overhead makes batching worthwhile there;
-    # the race simulator itself is cheap enough it doesn't need batching).
+    # Future rounds: recursive rolling state per sim, qualifying model batched across sims.
     driver_states = [copy.deepcopy(initial_driver_states) for _ in range(n_simulations)]
     constructor_states = [copy.deepcopy(initial_constructor_states) for _ in range(n_simulations)]
     season_race_counts = [dict(initial_season_race_counts) for _ in range(n_simulations)]

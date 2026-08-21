@@ -1,11 +1,4 @@
-"""Predicts grid_position from pre-qualifying rolling-form features.
-
-Needed only for simulating rounds that haven't happened: real grid
-positions come from qualifying, which for future rounds hasn't occurred.
-Trained on the same leakage-safe features as the top-10 classifier, but
-excludes grid_position and started_from_pit_lane — both are qualifying
-OUTCOMES, not inputs to it.
-"""
+"""Predicts grid_position from pre-qualifying rolling-form features."""
 import joblib
 import numpy as np
 import pandas as pd
@@ -34,13 +27,7 @@ QUALIFYING_FEATURE_COLUMNS = [
 
 
 def fit_qualifying_model(df: pd.DataFrame):
-    """Fit a grid-position regressor and report its held-out residual std.
-
-    residual_std becomes the noise scale used to simulate grid position
-    under genuine uncertainty later — a point prediction alone would
-    silently assume qualifying is deterministic given recent form, which
-    it obviously isn't.
-    """
+    """Fit a grid-position regressor and report its held-out residual std."""
     prepared = prepare_model_frame(df)
     train = prepared[prepared["season"].isin(TRAIN_SEASONS)]
     val = prepared[prepared["season"] == VALIDATION_SEASON]
@@ -66,13 +53,7 @@ def simulate_grid_positions(
     residual_std: float,
     rng: np.random.Generator,
 ) -> dict[str, int]:
-    """Simulate one qualifying session: a valid 1..N grid order.
-
-    Adding N(0, residual_std) noise to the model's point prediction and
-    re-ranking — rather than rounding the point estimate directly — is
-    what keeps grid position genuinely uncertain race to race, instead
-    of collapsing to the model's single best guess every simulation.
-    """
+    """Simulate one qualifying session: a valid 1..N grid order."""
     predicted_grid = model.predict(features[QUALIFYING_FEATURE_COLUMNS])
     noisy = predicted_grid + rng.normal(0, residual_std, size=len(predicted_grid))
     order = np.argsort(noisy)  # ascending: smallest predicted slot = pole

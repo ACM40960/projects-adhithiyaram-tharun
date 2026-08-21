@@ -15,11 +15,7 @@ MODEL_NAME = "random_forest"
 
 
 def load_2026_race_features() -> dict[int, pd.DataFrame]:
-    """Run 2026 rows through the same prep as training, then split by round.
-
-    Using prepare_model_frame here (not the raw CSV) is what guarantees
-    the era dummy columns match what the fitted model expects.
-    """
+    """Run 2026 rows through the same prep as training, then split by round."""
     features = pd.read_csv(PROCESSED_DATA_DIR / "features.csv")
     prepared = prepare_model_frame(features)
     season_2026 = prepared[prepared["season"] == 2026]
