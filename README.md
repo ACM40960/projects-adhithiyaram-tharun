@@ -24,6 +24,7 @@
 - [Overview](#overview)
 - [Summary of Results](#summary-of-results)
 - [Seasons and Regulatory Context](#seasons-and-regulatory-context)
+- [Exploratory Data Analysis](#exploratory-data-analysis)
 - [Repository Structure](#repository-structure)
 - [Requirements](#requirements)
 - [Setup and Usage](#setup-and-usage)
@@ -60,6 +61,24 @@ Formula 1 has undergone substantial regulatory and competitive change across the
 **2022–2025 (training and validation).** A single, stable regulatory generation: ground-effect aerodynamics (reintroduced 2022) and the 2014 power unit formula, both unchanged through 2025. Seasons 2022–2024 are used for training; 2025 is held out as a validation set within the same regulatory generation. Several constructors changed name within this window while remaining the same operational entity (e.g. Alfa Romeo → Sauber → Kick Sauber), and some drivers changed teams (e.g. Lewis Hamilton, Mercedes → Ferrari); both are handled explicitly rather than left implicit.
 
 **2026 (prediction target).** The largest single-season regulatory change in over a decade: a new power unit formula (50/50 combustion/electric split, MGU-H removed), a new chassis, and active aerodynamics replacing DRS, alongside power unit supplier changes for several teams and the arrival of an eleventh constructor, Cadillac. Because the car and power unit regulations reset simultaneously, constructor-level performance from 2022–2025 cannot be assumed to transfer directly into 2026. This is encoded via `REGULATION_ERA` (tags each season's regulatory generation) and `CONSTRUCTOR_NAME_MAP` (normalises constructor identity across rebrands), and is treated as an explicit source of prediction uncertainty rather than a gap to be smoothed over. This risk is measured directly in the [Results](#results) section rather than assumed.
+
+---
+
+## Exploratory Data Analysis
+
+Initial checks on the combined 2022–2026 results (`scripts/run_eda.py`), used to sanity-check the season split and motivate the feature set before any modelling.
+
+![Grid vs. finish position, by regulation era](data/processed/figures/grid_vs_finish_by_era.png)
+
+*Grid vs. finish position, split by regulation era. The bulk of the mass tracks the grid = finish diagonal in both eras, motivating `grid_position` as the strongest pre-race feature (confirmed later in [Results](#results)).*
+
+![Distribution of points scored per race entry](data/processed/figures/points_distribution.png)
+
+*Distribution of points scored per race entry, 2022–2026. Heavily right-skewed: most entries score zero, consistent with the top-10/podium classification targets being minority-class problems.*
+
+![Distinct constructors per season](data/processed/figures/constructors_per_season.png)
+
+*Distinct constructors per season, after constructor-name normalisation (`CONSTRUCTOR_NAME_MAP`). The jump to 11 in 2026 reflects Cadillac's entry, discussed under [Seasons and Regulatory Context](#seasons-and-regulatory-context) and [Limitations](#limitations).*
 
 ---
 
@@ -161,6 +180,7 @@ python -m scripts.fit_grid_penalty
 python -m scripts.fit_pit_stop_loss
 python -m scripts.build_noise_pool
 python -m scripts.build_race_simulator_inputs
+python -m scripts.benchmark_single_race           # optional: correctness + timing check on one race
 python -m scripts.run_physics_season_simulator    # v3: full season, physics-based
 python -m scripts.plot_championship_comparison
 python -m scripts.plot_championship_distribution
@@ -194,6 +214,10 @@ The dashboard (`dashboard/`) is a separate Streamlit layer on top of the pipelin
 | Phase 1 | Hierarchical multi-driver tyre model — partial pooling across the full 22-driver 2026 grid |
 | Phase 2 | Single-race lap-by-lap simulator — fitted grid penalty, pit-stop loss, multi-strategy pit menu |
 | Phase 3 | Physics-based full-season simulator — replaces classifier-score ranking with simulated race times |
+
+![Pipeline flowchart: shared data stage, then classifier-ranked (v1/v2) and physics-based (v3) tracks converging at validation](data/processed/figures/methodology_diagram.png)
+
+*Static rendering of the pipeline (`scripts/plot_methodology_diagram.py`); the dashboard's Home page renders the same structure as an interactive Plotly figure.*
 
 ---
 

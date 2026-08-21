@@ -74,8 +74,8 @@ def main() -> None:
     ax.set_ylim(0, 8.5)
     ax.axis("off")
     fig.tight_layout()
-    fig.savefig(FIGURES_DIR / "Final Methodology.png", dpi=200, bbox_inches="tight")
-    print(f"Saved to {FIGURES_DIR / 'Final Methodology.png'}")
+    fig.savefig(FIGURES_DIR / "methodology_diagram.png", dpi=200, bbox_inches="tight")
+    print(f"Saved to {FIGURES_DIR / 'methodology_diagram.png'}")
 
 
 if __name__ == "__main__":

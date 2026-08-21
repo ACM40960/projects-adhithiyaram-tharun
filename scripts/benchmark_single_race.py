@@ -1,4 +1,4 @@
-"""Single-race test: correctness check plus timing, before wiring into Stage 5's simulation loop."""
+"""Single-race benchmark: correctness check plus timing, before wiring into Stage 5's simulation loop."""
 import time
 
 import joblib
